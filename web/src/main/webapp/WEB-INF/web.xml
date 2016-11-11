@@ -21,7 +21,7 @@
     <!-- DispatcherServlet handles all requests, including requests for static content -->
     <servlet-mapping>
         <servlet-name>nextprotApi</servlet-name>
-        <url-pattern>/</url-pattern>
+        <url-pattern>/*</url-pattern>
     </servlet-mapping>
 
     <!-- ContextLoaderListener is a servlet listener that loads additional configuration

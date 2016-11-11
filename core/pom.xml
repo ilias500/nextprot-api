@@ -28,6 +28,20 @@
 			<version>${project.version}</version>
 		</dependency>
 
+		<dependency>
+ 			<groupId>org.mitre.dsmiley.httpproxy</groupId>
+ 			<artifactId>smiley-http-proxy-servlet</artifactId>
+ 			<version>1.7</version>
+ 		</dependency>
+
+
+		<!-- https://mvnrepository.com/artifact/org.apache.httpcomponents/httpclient -->
+		<dependency>
+		    <groupId>org.apache.httpcomponents</groupId>
+		    <artifactId>httpclient</artifactId>
+		    <version>4.5.2</version>
+		</dependency>
+
 		<!-- used for tests -->
 		<dependency>
 			<groupId>org.nextprot</groupId>

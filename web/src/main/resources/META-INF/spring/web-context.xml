@@ -39,6 +39,17 @@
 
 	<mvc:default-servlet-handler />
 
+
+	<bean id="myServletUrlMapping"
+		  class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping">
+		<property name="urlMap">
+			<map>
+				<entry key="/sparql/**" value-ref="SparqlProxyController" />
+			</map>
+		</property>
+		<property name="order" value="1" />
+	</bean>
+
 	<!-- BE CAREFULT WITH THIS INTERCEPTOR!!! If everybody in the same room... 
 		with same ips... <mvc:interceptors> <bean class="org.nextprot.api.core.aop.interceptor.ConcurrentRequestInterceptor" 
 		/> </mvc:interceptors> -->

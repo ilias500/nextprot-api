@@ -92,6 +92,7 @@
 
 	<bean
 		class="org.springframework.web.servlet.view.ContentNegotiatingViewResolver">
+  	    <property name="order" value="1" />
 		<property name="contentNegotiationManager" ref="contentNegotiationManager" />
 		<property name="viewResolvers">
 			<list>
@@ -148,4 +149,17 @@
 			</list>
 		</property>
 	</bean>
+	
+	<!-- If no extension matched, use JSP view -->
+	<bean
+		class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<property name="order" value="2" />
+		<property name="prefix">
+			<value>/WEB-INF/jsp/</value>
+		</property>
+		<property name="suffix">
+			<value>.jsp</value>
+		</property>
+	</bean>
+
 </beans>

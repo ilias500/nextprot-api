@@ -1,13 +1,9 @@
 package org.nextprot.api.security.service.impl;
 
-import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SignatureException;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
+import com.auth0.Auth0User;
+import com.auth0.jwt.JWTVerifier;
+import com.auth0.spring.security.auth0.Auth0JWTToken;
+import com.auth0.spring.security.auth0.Auth0TokenException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nextprot.api.security.service.JWTCodec;
@@ -23,10 +19,13 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 
-import com.auth0.Auth0User;
-import com.auth0.jwt.JWTVerifier;
-import com.auth0.spring.security.auth0.Auth0JWTToken;
-import com.auth0.spring.security.auth0.Auth0TokenException;
+import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SignatureException;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class NextprotAuthProvider implements AuthenticationProvider, InitializingBean {
 
@@ -35,14 +34,32 @@ public class NextprotAuthProvider implements AuthenticationProvider, Initializin
 	private String clientId;
 	private final Log logger = LogFactory.getLog(NextprotAuthProvider.class);
 
-	//@Autowired
-	//private NextprotAuth0Endpoint nextprotAuth0Endpoint;
+	@Autowired
+	private NextprotAuth0Endpoint nextprotAuth0Endpoint;
 
 	@Autowired
 	private UserDetailsService userDetailsService;
 
 	@Autowired
 	private JWTCodec<Map<String, Object>> codec;
+
+	private Auth0User getUserInfoFromAuth0BasedOnAccessToken(String accessToken){
+
+		try {
+
+			this.logger.debug("Will ask auth0 service");
+			//in case we send the access token
+			Auth0User auth0User = nextprotAuth0Endpoint.fetchUser(accessToken);
+			this.logger.debug("Authenticating with access token (asking auth0 endpoint)" + auth0User);
+			return auth0User;
+
+		}catch (Exception e){
+			e.printStackTrace();
+			this.logger.error(e.getMessage());
+			throw new SecurityException("client id not found");
+		}
+
+	}
 
 	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
 
@@ -53,41 +70,57 @@ public class NextprotAuthProvider implements AuthenticationProvider, Initializin
 
 			Map<String, Object> map = null;
 			Auth0User auth0User = null;
+
+			Boolean validateOnAuth0EndPoint = false;
 			
 			//Should put this in 2 different providers
 			if(token.split("\\.").length == 3){
-				//it's the id token (JWT)
-				map = jwtVerifier.verify(token);
-				this.logger.debug("Authenticating with JWT");
-			} /* else { // not using access token for now
 				try {
-					
-					this.logger.debug("Will ask auth0 service");
-					
-					//in case we send the access token
-					auth0User = nextprotAuth0Endpoint.fetchUser(token);
-					this.logger.debug("Authenticating with access token (asking auth0 endpoint)" + auth0User);
-					
-				}catch (Exception e){
-					e.printStackTrace();
-					this.logger.error(e.getMessage());
-					throw new SecurityException("client id not found");
+					map = jwtVerifier.verify(token);
+				}catch (IllegalStateException e){
+					if(e.getMessage().equals("unsupported algorithm")){
+						//If the algo is not supported ask Auth0 to validate for you the token.
+						//Note that with the update of the libraries this should be possible but there are many things which are not backward compatible
+						validateOnAuth0EndPoint = true;
+					}else {
+						throw e;
+					}
 				}
-			}*/
-			
+				this.logger.debug("Verifying JWT");
+			}
+
+			// 3 cases could happen
+			// 1) ID Token is sent and email is present (should not be done like that)
+			// 2) Access Token is sent with the email set in: https://www.nextprot.org/userinfo/email (see Auth0 rule: Enrich AccessToken with User email and name)
+			// 3) Access Token is sent without any email information set and therefore userinfo endpoint will be used to retrieve user info profile
+
+			String ID_TOKEN_EMAIL_ATTRIBUTE = "email";
+			String ACCESS_TOKEN_EMAIL_ATTRIBUTE = "https://www.nextprot.org/userinfo/email";
+
+			String attributeUsed = "NOT-SET";
+			//Case 1
+			if(!validateOnAuth0EndPoint && map.containsKey(ID_TOKEN_EMAIL_ATTRIBUTE)){
+				attributeUsed = ID_TOKEN_EMAIL_ATTRIBUTE;
+			}
+			//Case 2
+			else if(!validateOnAuth0EndPoint && map.containsKey(ACCESS_TOKEN_EMAIL_ATTRIBUTE)){
+				attributeUsed = ACCESS_TOKEN_EMAIL_ATTRIBUTE;
+			}
+			//Case 3
+			else { // 3rd case we ask Auth0 for who is this guy
+				auth0User = getUserInfoFromAuth0BasedOnAccessToken(token);
+			}
+
 			this.logger.debug("Decoded JWT token" + map);
 
 			UserDetails userDetails;
-
-			// UI Widget map
-			if ((auth0User != null && auth0User.getEmail() != null) || (map != null && map.containsKey("email"))) {
-
-				String username = null;
+			if ((auth0User != null && auth0User.getEmail() != null) || (map != null && map.containsKey(attributeUsed))) {
+				String username;
 				if(auth0User != null && auth0User.getEmail() != null) {
 					 username = auth0User.getEmail();
 				}
 				else {
-					username = (String) map.get("email");
+					username = (String) map.get(attributeUsed);
 				}
 				
 				if (username != null) {
@@ -103,7 +136,7 @@ public class NextprotAuthProvider implements AuthenticationProvider, Initializin
 			else if (map != null && map.containsKey("payload")) {
 
 				Map<String, Object> payload = codec.decodeJWT(token);
-				String username = (String) payload.get("email");
+				String username = (String) payload.get(attributeUsed);
 
 				if (username != null) {
 					userDetails = userDetailsService.loadUserByUsername(username);
@@ -136,6 +169,7 @@ public class NextprotAuthProvider implements AuthenticationProvider, Initializin
 					userDetails = userDetailsService.loadUserByUsername(userApp.getOwner());
 				}
 			}*/
+
 		} catch (InvalidKeyException e) {
 			//this.logger.error("InvalidKeyException thrown while decoding JWT token " + e.getLocalizedMessage());
 			throw new Auth0TokenException(e);

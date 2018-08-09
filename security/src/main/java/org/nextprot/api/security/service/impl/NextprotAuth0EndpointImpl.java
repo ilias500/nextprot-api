@@ -24,10 +24,11 @@ public class NextprotAuth0EndpointImpl implements InitializingBean, NextprotAuth
 	private String clientId = null;
 	private String clientDomain = null;
 
-	@Cacheable("user-auth")
+
+	@Cacheable("get-user-info-from-auth0-based-on-access-token")
 	public Auth0User fetchUser(String accessToken) throws IOException, JSONException {
 		Resty resty = new Resty();
-
+		resty.alwaysSend("Authorization", "Bearer " + accessToken);
 		String userInfoUri = getUserInfoUri(accessToken);
 		JSONResource json = resty.json(userInfoUri);
 		return new Auth0User(json.toObject());
@@ -35,7 +36,7 @@ public class NextprotAuth0EndpointImpl implements InitializingBean, NextprotAuth
 	}
 
 	private String getUserInfoUri(String accessToken) {
-		return getUri("/userinfo?access_token=" + accessToken);
+		return getUri("/userinfo");
 	}
 
 	private String getUri(String path) {

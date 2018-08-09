@@ -32,6 +32,11 @@
 	<cache name="master-unique-names-chromossome"
 		maxEntriesLocalHeap="24" eternal="true" statistics="true"/>
 
+	<!-- Give just 10 minutes -->
+	<cache name="get-user-info-from-auth0-based-on-access-token" maxEntriesLocalHeap="1000" eternal="false" timeToIdleSeconds="600"
+		   timeToLiveSeconds="3600" statistics="true"/>
+
+
 	<cache name="terminology-names" maxEntriesLocalHeap="50" eternal="true" statistics="true"/>
 
 	<cache name="master-unique-names" maxEntriesLocalHeap="1"
